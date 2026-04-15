@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>一键拨号</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --accent-color: #f1f5f9;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* ================== 公共卡片样式 ================== */
+        .card {
+            width: 100%;
+            max-width: 480px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+            border: 1px solid var(--border-color);
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================== 模式一：生成器样式 (PC端) ================== */
+        #generator-mode header { text-align: center; margin-bottom: 32px; }
+        .logo-icon { width: 56px; height: 56px; background: var(--accent-color); border-radius: 16px; display: flex; justify-content: center; align-items: center; margin: 0 auto 16px; color: var(--primary-color); }
+        #generator-mode h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        #generator-mode p { color: var(--text-muted); font-size: 14px; }
+        .input-group { margin-bottom: 24px; }
+        .input-label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+        input { width: 100%; padding: 14px 16px; border: 2px solid var(--border-color); border-radius: 12px; font-size: 18px; letter-spacing: 1px; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        
+        .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+        button { padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; border: none; }
+        .btn-generate { background: var(--primary-color); color: white; }
+        .btn-generate:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-reset { background: white; color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-reset:hover { background: var(--accent-color); }
+
+        .qr-display { background: var(--accent-color); border-radius: 20px; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 260px; margin-bottom: 24px; }
+        #qrcode { background: white; padding: 12px; border-radius: 12px; display: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .qr-placeholder { color: var(--text-muted); text-align: center; font-size: 14px; }
+        .qr-placeholder svg { margin-bottom: 12px; opacity: 0.3; }
+
+        .server-warning { background: #fffbeb; color: #b45309; padding: 12px; border-radius: 12px; font-size: 13px; margin-bottom: 24px; border: 1px solid #fde68a; display: flex; gap: 8px;}
+        .server-warning svg { flex-shrink: 0; }
+
+        .instructions { border-top: 1px solid var(--border-color); padding-top: 24px; }
+        .instructions h3 { font-size: 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .instruction-item { display: flex; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+        .item-num { background: var(--accent-color); color: var(--primary-color); width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+
+        /* ================== 模式二：拨号确认页样式 (微信扫码端) ================== */
+        #dial-mode { display: none; flex-direction: column; align-items: center; text-align: center; padding: 20px 10px; }
+        .avatar-circle { width: 80px; height: 80px; background: var(--primary-color); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; margin-bottom: 24px; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2); }
+        .dial-title { font-size: 16px; color: var(--text-muted); margin-bottom: 8px; }
+        .dial-number { font-size: 32px; font-weight: 700; color: var(--text-main); margin-bottom: 40px; letter-spacing: 1px; }
+        
+        .btn-call { display: flex; width: 100%; padding: 16px; background: #10b981; color: white; border-radius: 16px; font-size: 18px; font-weight: 600; text-decoration: none; justify-content: center; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); transition: 0.2s; }
+        .btn-call:active { transform: scale(0.98); }
+        
+        .secure-tip { margin-top: 24px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+        @media (max-width: 480px) { .card { padding: 24px; } }
+    </style>
+</head>
+<body>
+
+    <!-- 模式一：生成器 UI -->
+    <div class="card" id="generator-mode">
+        <header>
+            <div class="logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            </div>
+            <h1>拨号二维码生成器</h1>
+            <p>支持微信扫码识别的中转方案</p>
+        </header>
+
+        <!-- 警告提示，解释必须部署才能在手机上用的原因 -->
+        <div class="server-warning" id="server-warning" style="display: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+            <div>注意：当前是本地文件 (file://) 打开。由于微信无法访问您电脑的本地文件，扫码将失败。<b>请将此HTML文件放置在 Web 服务器上 (如局域网服务器、Vercel 或 Github Pages) 访问。</b></div>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label" for="phone">手机号码</label>
+            <input type="tel" id="phone" placeholder="请输入11位手机号" maxlength="11" autocomplete="off">
+        </div>
+
+        <div class="button-row">
+            <button class="btn-reset" onclick="resetForm()">重置</button>
+            <button class="btn-generate" onclick="generateQR()">生成二维码</button>
+        </div>
+
+        <div class="qr-display">
+            <div id="qrcode"></div>
+            <div class="qr-placeholder" id="placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01"/><path d="M17 7h.01"/><path d="M7 17h.01"/><path d="M12 7v10"/><path d="M7 12h10"/></svg>
+                <p>微信扫码专属二维码</p>
+            </div>
+        </div>
+
+        <section class="instructions">
+            <h3>使用说明</h3>
+            <div class="instruction-item"><span class="item-num">1</span><p>此页面既是生成器，也是手机端扫码后的中转页。</p></div>
+            <div class="instruction-item"><span class="item-num">2</span><p>生成的二维码其实是当前网页的网址，并附带了号码参数。</p></div>
+            <div class="instruction-item"><span class="item-num">3</span><p>微信扫码后打开此网页，点击网页中的“确认拨打”即可调起手机拨号盘。</p></div>
+        </section>
+    </div>
+
+    <!-- 模式二：拨号确认 UI (手机扫码后显示) -->
+    <div class="card" id="dial-mode">
+        <div class="avatar-circle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        </div>
+        <div class="dial-title">正在呼叫</div>
+        <div class="dial-number" id="dial-number-display">138 0000 0000</div>
+        
+        <a href="#" class="btn-call" id="btn-call-action">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            确认拨打
+        </a>
+
+        <div class="secure-tip">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            连接已加密，由浏览器发起系统拨号
+        </div>
+    </div>
+
+    <script>
+        // 核心逻辑：判断当前是生成器模式，还是扫码后的拨号模式
+        const urlParams = new URLSearchParams(window.location.search);
+        const phoneToDial = urlParams.get('phone');
+
+        if (phoneToDial) {
+            // ================= 模式二：拨号确认页 =================
+            document.getElementById('generator-mode').style.display = 'none';
+            const dialMode = document.getElementById('dial-mode');
+            dialMode.style.display = 'flex';
+            
+            // 格式化手机号显示 138 0000 0000
+            const formattedPhone = phoneToDial.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3');
+            document.getElementById('dial-number-display').innerText = formattedPhone;
+            
+            // 设置按钮的真实拨号链接
+            document.getElementById('btn-call-action').href = `tel:${phoneToDial}`;
+        } else {
+            // ================= 模式一：生成器 =================
+            document.title = "拨号二维码生成器";
+            
+            // 检查是否是本地 file:// 协议打开的。如果是，给出警告
+            if (window.location.protocol === 'file:') {
+                document.getElementById('server-warning').style.display = 'flex';
+            }
+        }
+
+        let qrcode = null;
+
+        function generateQR() {
+            const phone = document.getElementById('phone').value.trim();
+            const qrContainer = document.getElementById('qrcode');
+            const placeholder = document.getElementById('placeholder');
+
+            if (!/^1[3-9]\d{9}$/.test(phone)) {
+                alert('请输入正确的11位手机号码');
+                return;
+            }
+
+            qrContainer.innerHTML = '';
+            qrContainer.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            // 【关键修改】不再生成 tel:xxx，而是生成当前页面的网址 + 参数
+            // 例如：http://localhost:8080/dial-qr-gen.html?phone=13800138000
+            // 如果是 file:// 协议，这里生成的网址手机是打不开的，所以必须借助服务器
+            const currentUrl = window.location.origin + window.location.pathname;
+            const targetUrl = `${currentUrl}?phone=${phone}`;
+
+            qrcode = new QRCode(qrContainer, {
+                text: targetUrl,
+                width: 200,
+                height: 200,
+                colorDark: "#1e293b",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('phone').value = '';
+            document.getElementById('qrcode').innerHTML = '';
+            document.getElementById('qrcode').style.display = 'none';
+            document.getElementById('placeholder').style.display = 'flex';
+        }
+
+        document.getElementById('phone').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') generateQR();
+        });
+    </script>
+</body>
+</html>
